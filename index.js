@@ -193,65 +193,91 @@ async function linkvertise(userid, link) {
 }
 
 async function LinkvertiseShortner(url, option, select) {
+    console.log(`\n--- [LV START] Processing: ${url.substring(0, 30)}... ---`);
     try {
+        // Step 1: Final destination
         const linkvertiseUrl = await linkvertise(option.linkvertiseId, url);
+        console.log(`[LV 1/2] Destination Shortened: ${linkvertiseUrl}`);
 
-        if (select === "1of1") return linkvertiseUrl;
+        if (select === "1of1") {
+            console.log(`[LV 1of1] Returning Direct Link.`);
+            return linkvertiseUrl;
+        }
 
+        // Step 2: JustPaster
         const replacements = { '%shortUrl%': linkvertiseUrl };
         const text = Replace(option.template, replacements);
-        const createResponse = await jpApi.createPaste(text, true);
+        const pasteId = await jpApi.createPaste(text, true);
+        const pasteUrl = `https://justpaster.xyz/${pasteId}`;
+        console.log(`[LV 2/2] JustPaster ID: ${pasteId} | URL: ${pasteUrl}`);
 
-        const pasteUrl = `https://justpaster.xyz/${createResponse}`;
-        const linkvertisePasteUrl = await linkvertise(option.linkvertiseId, pasteUrl);
+        // Step 3: Shorten the Paste
+        const finalLink = await linkvertise(option.linkvertiseId, pasteUrl);
+        console.log(`[LV FINAL] Final Outer Link: ${finalLink}`);
 
-        jpApi.addAntiBypass(createResponse, true, linkvertisePasteUrl);
-        return linkvertisePasteUrl;
+        // Step 4: Anti-Bypass
+        console.log(`[LV LOCK] Locking Paste ${pasteId} to Referrer: ${finalLink}`);
+        await jpApi.addAntiBypass(pasteId, true, finalLink);
 
+        return finalLink;
     } catch (error) {
-        console.error('R.I.Y.A: Error in LinkvertiseShortner:', error.message);
+        console.error('R.I.Y.A: Linkvertise Error:', error.message);
         return url;
     }
 }
 
 async function AdmavenShortner(url, option, select, attempts = 3) {
+    console.log(`\n--- [AM START] Processing: ${url.substring(0, 30)}... (Attempt: ${4-attempts}) ---`);
     try {
-        const titleText = select === "1of1" ? "1 of 1" : "2 of 2";
-        const apiUrl = `https://publishers.ad-maven.com/api/public/content_locker?api_token=${option.token}&title=${titleText}&url=${encodeURIComponent(url)}`;
+        // Step 1
+        const title1 = select === "1of1" ? "Final Link" : "Link 2 of 2";
+        const apiUrl = `https://publishers.ad-maven.com/api/public/content_locker?api_token=${option.token}&title=${encodeURIComponent(title1)}&url=${encodeURIComponent(url)}`;
 
         const response = await fetch(apiUrl);
         const data = await response.json();
 
-        if (data.type === 'fetched' && data.message && data.message[0]) {
-            const shortUrl = option.domain + data.message[0].short;
+        if (data.type === 'fetched' && data.message?.[0]) {
+            const innerShortUrl = option.domain + data.message[0].short;
+            console.log(`[AM 1/2] Inner Ad Link: ${innerShortUrl}`);
 
-            if (select === "1of1") return shortUrl;
+            if (select === "1of1") return innerShortUrl;
 
-            const replacements = { '%shortUrl%': shortUrl };
+            // Step 2: JustPaster
+            const replacements = { '%shortUrl%': innerShortUrl };
             const text = Replace(option.template, replacements);
-            const createResponse = await jpApi.createPaste(text, true);
+            const pasteId = await jpApi.createPaste(text, true);
+            const pasteUrl = `https://justpaster.xyz/${pasteId}`;
+            console.log(`[AM 2/2] JustPaster URL: ${pasteUrl}`);
 
-            const secondApiUrl = `https://publishers.ad-maven.com/api/public/content_locker?api_token=${option.token}&title=1 of 2&url=${encodeURIComponent(`https://justpaster.xyz/${createResponse}`)}`;
+            // Step 3: Outer Ad Link
+            const title2 = "Link 1 of 2";
+            const secondApiUrl = `https://publishers.ad-maven.com/api/public/content_locker?api_token=${option.token}&title=${encodeURIComponent(title2)}&url=${encodeURIComponent(pasteUrl)}`;
+            
             const secondResponse = await fetch(secondApiUrl);
             const secondData = await secondResponse.json();
 
-            if (secondData.type === 'fetched' && secondData.message && secondData.message[0]) {
-                const finalShortUrl = option.domain + secondData.message[0].short;
-                jpApi.addAntiBypass(createResponse, true, finalShortUrl);
-                return finalShortUrl;
-            } else {
-                throw new Error('AdMaven Error: Second shortening failed.');
+            if (secondData.type === 'fetched' && secondData.message?.[0]) {
+                const outerShortUrl = option.domain + secondData.message[0].short;
+                console.log(`[AM FINAL] Outer Ad Link: ${outerShortUrl}`);
+
+                // Check for duplicate URLs which cause loops
+                if (outerShortUrl === innerShortUrl) {
+                    console.warn("⚠️ [AM WARNING] API returned identical links for both steps! This will loop.");
+                } else {
+                    console.log(`[AM LOCK] Locking Paste ${pasteId} to Referrer: ${outerShortUrl}`);
+                    await jpApi.addAntiBypass(pasteId, true, outerShortUrl);
+                }
+                
+                return outerShortUrl;
             }
-        } else {
-            throw new Error('AdMaven Error: API returned unexpected data.');
         }
+        throw new Error('AdMaven API returned empty/invalid response');
     } catch (error) {
-        console.error('R.I.Y.A: Error in AdMavenShortner:', error.message);
+        console.error(`R.I.Y.A: AdMaven Error:`, error.message);
         if (attempts > 0) return AdmavenShortner(url, option, select, attempts - 1);
         return url;
     }
 }
-
 
 // --- IMAGE PROCESSING & POSTING (Modified for Labeling) ---
 
