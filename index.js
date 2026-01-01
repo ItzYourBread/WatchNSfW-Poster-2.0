@@ -103,76 +103,36 @@ async function getRandomImage(channel, textLabeling) {
     }
 }
 
-/** * Parses Bulk Input based on channel type.
- * OF-Models: list of URLs (to be scraped).
- * TeraBox: list of {name, link} objects (explicitly provided).
- * Others: list of {name: link, link: link} (only link is relevant, title is from label).
- */
-function parseBulkInput(bulkText, isScrapeMode, isTeraBox) {
+function parseBulkInput(bulkText, isScrapeMode, isManualData) {
     const lines = bulkText.split(/[\r\n]+/).map(l => l.trim()).filter(Boolean);
+    if (isScrapeMode) return lines.filter(line => line.startsWith('http'));
 
-    if (isScrapeMode) {
-        // OF-Models: Just return the Rentry URLs
-        return lines.filter(line => line.startsWith('http'));
-    }
-
-    // This mode (TeraBox, Collection, or Others) expects pairs of (Name/Title, Link)
     const entries = [];
-    
-    // Iterate through lines in pairs (i = Name, i+1 = Link)
     for (let i = 0; i < lines.length; i += 2) {
         const lineA = lines[i];
         const lineB = lines[i + 1];
+        if (!lineA) break;
 
-        if (!lineA) break; 
-
-        // CASE 1: Explicit NAME: / LINK: pair (e.g., NAME: Title, LINK: http://link)
         if (lineA.toUpperCase().startsWith('NAME:') && lineB?.toUpperCase().startsWith('LINK:')) {
-            const name = lineA.replace(/NAME\s*:\s*/i, '').trim();
-            const link = lineB.replace(/LINK\s*:\s*/i, '').trim();
-            if (link.startsWith('http')) {
-                entries.push({ name, link });
-            }
-        } 
-        // CASE 2: Implicit Title/Link Pair (Title on line A, Link on line B)
-        // This handles your desired format: [Text Line] \n [Link Line]
-        else if (lineB?.startsWith('http') && !lineA.startsWith('http')) {
+            entries.push({ name: lineA.replace(/NAME\s*:\s*/i, '').trim(), link: lineB.replace(/LINK\s*:\s*/i, '').trim() });
+        } else if (lineB?.startsWith('http') && !lineA.startsWith('http')) {
             entries.push({ name: lineA, link: lineB });
-        } 
-        // CASE 3: Single Link Fallback (If the link is the only entry)
-        else if (lineA.startsWith('http')) {
-             // This treats a single link as both name and link.
-             entries.push({ name: lineA, link: lineA });
+        } else if (lineA.startsWith('http')) {
+            entries.push({ name: lineA, link: lineA });
         }
-        // If none of the above match, the pair is malformed and is skipped by i += 2
     }
-
-    console.log(`R.I.Y.A: Parsed ${entries.length} entries for processing.`);
     return entries;
 }
 
-/** * Scrapes a Rentry.co link to extract the name and final link.
- */
 async function scrapeRentry(rentryUrl) {
     try {
-        console.log(`R.I.Y.A: Attempting to scrape Rentry URL: ${rentryUrl}`);
         const { data: html } = await axios.get(rentryUrl);
         const $ = cheerio.load(html);
         const entryText = $('.entry-text article div').first();
-
         let name = entryText.find('p').first().text().trim();
-        name = name.replace(/[^\w\s-.]/g, '').trim();
-
         let link = entryText.find('a.external').attr('href');
-
-        if (name && link) {
-            return { name, link };
-        } else {
-            console.error('R.I.Y.A: Rentry scraping failed: Missing Name or Link.');
-            return null;
-        }
+        return (name && link) ? { name, link } : null;
     } catch (error) {
-        console.error('R.I.Y.A: Error during Rentry scraping:', error.message);
         return null;
     }
 }
@@ -372,6 +332,43 @@ async function sendToTelegram(telegramTopic, TelegramText, imagePath, messageThr
     }
 }
 
+async function handleAdFreePosting(serverData, channel, title, rawLink, imagePath) {
+    // 1. FIX: Added -100 prefix (Standard for Supergroups/Topics)
+    const targetChatId = "-1002163065425"; 
+    
+    // 2. FIX: Use HTML instead of MarkdownV2 to prevent "parsing" crashes
+    const adFreeText = `<b>${title}</b>\n\n🔓 <b>AD-FREE DIRECT LINK</b>\n<code>${rawLink}</code>`;
+
+    try {
+        if (serverData.name === "watchnsfw" && channel === "TeraBox") {
+            console.log(`[AD-FREE] Routing TeraBox to Topic 581`);
+            await telegram.sendPhoto(
+                targetChatId,
+                { source: path.normalize(imagePath) },
+                { 
+                    caption: adFreeText, 
+                    parse_mode: "HTML", 
+                    message_thread_id: 581 // Ensure this is an integer
+                }
+            );
+        } 
+        else if (channel !== "TeraBox") {
+            console.log(`[AD-FREE] Routing ${channel} to Topic 582`);
+            await telegram.sendPhoto(
+                targetChatId,
+                { source: path.normalize(imagePath) },
+                { 
+                    caption: adFreeText, 
+                    parse_mode: "HTML", 
+                    message_thread_id: 582 
+                }
+            );
+        }
+    } catch (error) {
+        // This will now tell you EXACTLY why Telegram is rejecting it
+        console.error('R.I.Y.A: Telegram Ad-Free Error:', error.description || error.message);
+    }
+}
 
 // --- CORE ENTRY PROCESSOR ---
 async function processSingleEntry(serverKey, channel, title, link, imagePath, selectType, adTypeArray, textLabeling) {
@@ -379,8 +376,7 @@ async function processSingleEntry(serverKey, channel, title, link, imagePath, se
 
     if (!serverData || !serverData.Status) return;
 
-    const cleanTitle = title.replace(/[^a-zA-Z0-9\s\-_.]/g, '').trim().toUpperCase();
-    let finalLink = link;
+    const cleanTitle = title.trim();    let finalLink = link;
     let DiscordText = `**${cleanTitle}**\n\n**⚝──⭒─𝓜𝓮𝓰𝓪⭑𝓕𝓸𝓵𝓭𝓮𝓻─⭒──⚝**\n`;
     let TelegramText = `*${escapeMarkdownV2(cleanTitle)}*\n\n*⚝──⭒─𝓜𝓮𝓰𝓪⭑𝓕𝓸𝓵𝓭𝓮𝓻─⭒──⚝*\n`;
 
@@ -412,6 +408,7 @@ async function processSingleEntry(serverKey, channel, title, link, imagePath, se
     }
     // **END NEW LOGIC**
 
+    await handleAdFreePosting(serverData, channel, cleanTitle, link, outputImage);
     const webhookUrl = serverData.DiscordChannels && serverData.DiscordChannels[channel];
 
     if (webhookUrl) {
@@ -480,17 +477,15 @@ app.post('/process-bulk', upload.single('image'), async (req, res) => {
                     finalLink = scraped.link;
                 } else if (isTera) {
                     // TeraBox: Manual name/link pair
-                    finalTitle = entry.name && entry.name !== entry.link 
-                               ? entry.name.toUpperCase()
-                               : "Open Links & Watch Online Easily + Download"; 
+                    finalTitle = "𝐎𝐩𝐞𝐧 𝐋𝐢𝐧𝐤𝐬 & 𝐖𝐚𝐭𝐜𝐡 𝐎𝐧𝐥𝐢𝐧𝐞 𝐄𝐚𝐬𝐢𝐥𝐲 + 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝"; 
                     finalLink = entry.link;
                 } else if (isCollection) { // **<-- NEW LOGIC FOR COLLECTION**
                     // Collection: Manual name/link pair from input
-                    finalTitle = entry.name ? entry.name.toUpperCase() : "New Collection Post"; 
+                    finalTitle = entry.name ? entry.name : "New Collection Post"; 
                     finalLink = entry.link;
                 } else {
                     // Other Channels (State-Snap, Amateur, Leaks-Vids): Label is title, link is the URL from input
-                    finalTitle = textLabeling.replace(/-/g, ' ').toUpperCase();
+                    finalTitle = textLabeling.replace(/-/g, ' ');
                     finalLink = entry.link;
                 }
 
