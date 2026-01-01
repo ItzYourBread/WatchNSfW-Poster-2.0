@@ -33,8 +33,8 @@
 
                 <label for="channel">Posting Channel / Mode:</label>
                 <select name="channel" id="channel" required onchange="toggleFormMode()">
-                    <option value="OF-Models">OF-Models (Manual Photo + Rentry Scrape)</option>
                     <option value="TeraBox">TeraBox (Manual Photo + Manual Data)</option>
+                    <option value="OF-Models">OF-Models (Manual Photo + Rentry Scrape)</option>
                     <option value="Collection">Collection (Manual Photo + Manual Data)</option>
                     <option value="State-Snap">State-Snap (Random Photo + Label)</option>
                     <option value="Leaks-Vids">Leaks-Vids (Random Photo + Label)</option>
@@ -128,7 +128,7 @@
                 } else { // TeraBox
                     inputLabel.innerText = "TeraBox Links:";
                     helpText.innerText = "Mode: TeraBox. Input Title and Link pairs (2 lines per entry).";
-                    bulkText.placeholder = "Model Title 1\nhttps://terabox.com/s/123...\n\nModel Title 2\nhttps://terabox.com/s/abc...";
+                    bulkText.placeholder = "https://terabox.com/s/123...\n\nhttps://terabox.com/s/abc...";
                 }
 
             } else {

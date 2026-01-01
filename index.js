@@ -333,39 +333,37 @@ async function sendToTelegram(telegramTopic, TelegramText, imagePath, messageThr
 }
 
 async function handleAdFreePosting(serverData, channel, title, rawLink, imagePath) {
-    // 1. FIX: Added -100 prefix (Standard for Supergroups/Topics)
+    // FIX: Added the -100 prefix. Telegram Supergroup IDs must start with -100
     const targetChatId = "-1002163065425"; 
-    
-    // 2. FIX: Use HTML instead of MarkdownV2 to prevent "parsing" crashes
-    const adFreeText = `<b>${title}</b>\n\n🔓 <b>AD-FREE DIRECT LINK</b>\n<code>${rawLink}</code>`;
+
+    // This is your "Normal/Default" style using HTML tags
+    const adFreeText = `<b>${title}</b>\n\n` +
+                       `<b>⚝──⭒─𝓜𝓮𝓰𝓪⭑𝓕𝓸𝓵𝓭𝓮𝓻─⭒──⚝</b>\n\n` +
+                       `<b>Direct Link:</b> ${rawLink}\n\n` +
+                       `<b>⚝─────⭒────⭑────⭒─────⚝</b>`;
 
     try {
+        let topicId = null;
         if (serverData.name === "watchnsfw" && channel === "TeraBox") {
-            console.log(`[AD-FREE] Routing TeraBox to Topic 581`);
+            topicId = 581;
+        } else if (channel !== "TeraBox") {
+            topicId = 582;
+        }
+
+        if (topicId) {
+            console.log(`[AD-FREE] Sending to Topic ${topicId}`);
             await telegram.sendPhoto(
                 targetChatId,
                 { source: path.normalize(imagePath) },
                 { 
                     caption: adFreeText, 
                     parse_mode: "HTML", 
-                    message_thread_id: 581 // Ensure this is an integer
-                }
-            );
-        } 
-        else if (channel !== "TeraBox") {
-            console.log(`[AD-FREE] Routing ${channel} to Topic 582`);
-            await telegram.sendPhoto(
-                targetChatId,
-                { source: path.normalize(imagePath) },
-                { 
-                    caption: adFreeText, 
-                    parse_mode: "HTML", 
-                    message_thread_id: 582 
+                    message_thread_id: topicId 
                 }
             );
         }
     } catch (error) {
-        // This will now tell you EXACTLY why Telegram is rejecting it
+        // If it fails, this will print the EXACT reason from Telegram
         console.error('R.I.Y.A: Telegram Ad-Free Error:', error.description || error.message);
     }
 }
