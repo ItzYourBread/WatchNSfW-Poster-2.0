@@ -72,22 +72,44 @@ function escapeMarkdownV2(text) {
 
 // Helper: Pick a random image from the backend folder structure
 async function getRandomImage(channel, textLabeling) {
-    // Path: random_images/CHANNEL/
-    // *** MODIFICATION: Removed 'textLabeling' from the path. ***
-    const dir = path.join('./random_images'); 
-    
-    // The placeholder path remains the same
-    const placeholderPath = path.join('public', 'placeholder.png'); 
+    const placeholderPath = path.join('public', 'placeholder.png');
+
+    // 🔒 HARD RULE: Leaks-Vids always uses a fixed image
+    if (channel === 'Leaks-Vids') {
+        const fixedLeaksImage = path.join(
+            'random_images',
+            'IMG_2510.jpg' // <-- your fixed image
+        );
+
+        try {
+            if (await fs.pathExists(fixedLeaksImage)) {
+                return fixedLeaksImage;
+            } else {
+                console.warn('R.I.Y.A: Fixed Leaks-Vids image not found, using placeholder.');
+                return placeholderPath;
+            }
+        } catch (e) {
+            console.error('R.I.Y.A: Error resolving Leaks-Vids image:', e.message);
+            return placeholderPath;
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Default behavior: random image for all other channels
+    // ------------------------------------------------------------------
+
+    const dir = path.join('./random_images');
 
     try {
         if (!await fs.pathExists(dir)) {
-            console.warn(`R.I.Y.A: Random image path not found for channel: ${dir}.`);
+            console.warn(`R.I.Y.A: Random image path not found: ${dir}`);
             return placeholderPath;
         }
 
         const files = await fs.readdir(dir);
-        // Filter out any hidden files or subdirectories (though this assumes all files are directly here)
-        const imageFiles = files.filter(f => !f.startsWith('.') && fs.statSync(path.join(dir, f)).isFile()); 
+        const imageFiles = files.filter(
+            f => !f.startsWith('.') && fs.statSync(path.join(dir, f)).isFile()
+        );
 
         if (imageFiles.length === 0) {
             console.error(`R.I.Y.A: Folder ${dir} is empty.`);
@@ -102,6 +124,7 @@ async function getRandomImage(channel, textLabeling) {
         return placeholderPath;
     }
 }
+
 
 function parseBulkInput(bulkText, isScrapeMode, isManualData) {
     const lines = bulkText.split(/[\r\n]+/).map(l => l.trim()).filter(Boolean);
@@ -406,7 +429,10 @@ async function processSingleEntry(serverKey, channel, title, link, imagePath, se
     }
     // **END NEW LOGIC**
 
-    await handleAdFreePosting(serverData, channel, cleanTitle, link, outputImage);
+    if (serverData.name === "watchnsfw") {
+        await handleAdFreePosting(serverData, channel, cleanTitle, link, outputImage);
+    }
+
     const webhookUrl = serverData.DiscordChannels && serverData.DiscordChannels[channel];
 
     if (webhookUrl) {
@@ -447,6 +473,7 @@ app.post('/process-bulk', upload.single('image'), async (req, res) => {
         const isScrape = (channel === 'OF-Models');
         const isTera = (channel === 'TeraBox');
         const isCollection = (channel === 'Collection'); // New variable for clarity
+        const isLeaksVids = (channel === 'LeaksVids'); // New variable for clarity
         
         // Parse the input based on the mode
         const entries = parseBulkInput(bulkText, isScrape, isTera || isCollection); // Pass Tera/Collection to parser
@@ -474,8 +501,12 @@ app.post('/process-bulk', upload.single('image'), async (req, res) => {
                     finalTitle = scraped.name;
                     finalLink = scraped.link;
                 } else if (isTera) {
-                    // TeraBox: Manual name/link pair
+                    // TeraBox: link pair
                     finalTitle = "𝐎𝐩𝐞𝐧 𝐋𝐢𝐧𝐤𝐬 & 𝐖𝐚𝐭𝐜𝐡 𝐎𝐧𝐥𝐢𝐧𝐞 𝐄𝐚𝐬𝐢𝐥𝐲 + 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝"; 
+                    finalLink = entry.link;
+                } else if (isLeaksVids) {
+                    // Leaks-Vids:link pair
+                    finalTitle = "𝐋𝟑𝟒𝐊 𝐓𝟑𝟑𝐍𝐒 𝐕𝐈𝐃𝐒 𝐏𝐀𝐂𝐊"; 
                     finalLink = entry.link;
                 } else if (isCollection) { // **<-- NEW LOGIC FOR COLLECTION**
                     // Collection: Manual name/link pair from input
