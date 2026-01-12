@@ -77,8 +77,8 @@ async function getRandomImage(channel, textLabeling) {
     // 🔒 HARD RULE: Leaks-Vids always uses a fixed image
     if (channel === 'Leaks-Vids') {
         const fixedLeaksImage = path.join(
-            'random_images',
-            'IMG_2510.jpg' // <-- your fixed image
+            'static-images',
+            'Leaks-Vids.jpg' // <-- your fixed image
         );
 
         try {

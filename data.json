@@ -30,7 +30,7 @@
         }
     },
     "NSFW-NUDE": {
-        "Status": true,
+        "Status": false,
         "Telegram": false,
         "Group": "",
         "name": "nude-nsfw",
