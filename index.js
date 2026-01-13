@@ -210,7 +210,7 @@ async function LinkvertiseShortner(url, option, select) {
 }
 
 async function AdmavenShortner(url, option, select, attempts = 3) {
-    console.log(`\n--- [AM START] Processing: ${url.substring(0, 30)}... (Attempt: ${4-attempts}) ---`);
+    console.log(`\n--- [AM START] Processing: ${url.substring(0, 30)}... (Attempt: ${4 - attempts}) ---`);
     try {
         // Step 1
         const title1 = select === "1of1" ? "Final Link" : "Link 2 of 2";
@@ -235,7 +235,7 @@ async function AdmavenShortner(url, option, select, attempts = 3) {
             // Step 3: Outer Ad Link
             const title2 = "Link 1 of 2";
             const secondApiUrl = `https://publishers.ad-maven.com/api/public/content_locker?api_token=${option.token}&title=${encodeURIComponent(title2)}&url=${encodeURIComponent(pasteUrl)}`;
-            
+
             const secondResponse = await fetch(secondApiUrl);
             const secondData = await secondResponse.json();
 
@@ -250,7 +250,7 @@ async function AdmavenShortner(url, option, select, attempts = 3) {
                     console.log(`[AM LOCK] Locking Paste ${pasteId} to Referrer: ${outerShortUrl}`);
                     await jpApi.addAntiBypass(pasteId, true, outerShortUrl);
                 }
-                
+
                 return outerShortUrl;
             }
         }
@@ -307,10 +307,10 @@ async function processImage(imagePath, watermarkPath, textTemplate, textLabeling
 
 async function sendToDiscord(webhookUrl, DiscordPremiumWebhook, title, PremiumLink, DiscordText, imagePath) {
     const normalizedImagePath = path.normalize(imagePath.replace(/"/g, ''));
-    
+
     // Extract the base filename
     let fileName = path.basename(normalizedImagePath);
-    
+
     // **NEW LOGIC:** If it's a raw Multer path (no extension), append .png for Discord
     if (isRawMulterPath(normalizedImagePath)) {
         fileName = `${fileName}.png`;
@@ -357,13 +357,13 @@ async function sendToTelegram(telegramTopic, TelegramText, imagePath, messageThr
 
 async function handleAdFreePosting(serverData, channel, title, rawLink, imagePath) {
     // FIX: Added the -100 prefix. Telegram Supergroup IDs must start with -100
-    const targetChatId = "-1002163065425"; 
+    const targetChatId = "-1002163065425";
 
     // This is your "Normal/Default" style using HTML tags
     const adFreeText = `<b>${title}</b>\n\n` +
-                       `<b>⚝──⭒─𝓜𝓮𝓰𝓪⭑𝓕𝓸𝓵𝓭𝓮𝓻─⭒──⚝</b>\n\n` +
-                       `<b>Direct Link:</b> ${rawLink}\n\n` +
-                       `<b>⚝─────⭒────⭑────⭒─────⚝</b>`;
+        `<b>⚝──⭒─𝓜𝓮𝓰𝓪⭑𝓕𝓸𝓵𝓭𝓮𝓻─⭒──⚝</b>\n\n` +
+        `<b>Direct Link:</b> ${rawLink}\n\n` +
+        `<b>⚝─────⭒────⭑────⭒─────⚝</b>`;
 
     try {
         let topicId = null;
@@ -378,10 +378,10 @@ async function handleAdFreePosting(serverData, channel, title, rawLink, imagePat
             await telegram.sendPhoto(
                 targetChatId,
                 { source: path.normalize(imagePath) },
-                { 
-                    caption: adFreeText, 
-                    parse_mode: "HTML", 
-                    message_thread_id: topicId 
+                {
+                    caption: adFreeText,
+                    parse_mode: "HTML",
+                    message_thread_id: topicId
                 }
             );
         }
@@ -397,7 +397,7 @@ async function processSingleEntry(serverKey, channel, title, link, imagePath, se
 
     if (!serverData || !serverData.Status) return;
 
-    const cleanTitle = title.trim();    let finalLink = link;
+    const cleanTitle = title.trim(); let finalLink = link;
     let DiscordText = `**${cleanTitle}**\n\n**⚝──⭒─𝓜𝓮𝓰𝓪⭑𝓕𝓸𝓵𝓭𝓮𝓻─⭒──⚝**\n`;
     let TelegramText = `*${escapeMarkdownV2(cleanTitle)}*\n\n*⚝──⭒─𝓜𝓮𝓰𝓪⭑𝓕𝓸𝓵𝓭𝓮𝓻─⭒──⚝*\n`;
 
@@ -419,7 +419,7 @@ async function processSingleEntry(serverKey, channel, title, link, imagePath, se
     TelegramText += "\n\n*⚝────⭒────⭑────⭒────⚝*";
 
     let outputImage;
-    
+
     // **NEW LOGIC: Bypass image processing for 'Collection' channel**
     if (channel === 'Collection') {
         outputImage = imagePath; // Use the raw uploaded image path
@@ -460,74 +460,92 @@ app.get('/', (req, res) => {
 // Bulk Posting Route (Handles ALL channel logic)
 app.post('/process-bulk', upload.single('image'), async (req, res) => {
     const { server, channel, bulkText, selectType, AdType, textLabeling } = req.body;
-    
-    // Channels requiring user upload (OF-Models, TeraBox, Collection)
+
     const isManualPhoto = (channel === 'OF-Models' || channel === 'TeraBox' || channel === 'Collection');
-    
-    // Check for image upload only if required by the channel
     if (isManualPhoto && !req.file) return res.status(400).send('Error: No image file uploaded for this channel.');
-    
+
     res.render('success');
 
     try {
         const isScrape = (channel === 'OF-Models');
         const isTera = (channel === 'TeraBox');
-        const isCollection = (channel === 'Collection'); // New variable for clarity
-        const isLeaksVids = (channel === 'LeaksVids'); // New variable for clarity
-        
-        // Parse the input based on the mode
-        const entries = parseBulkInput(bulkText, isScrape, isTera || isCollection); // Pass Tera/Collection to parser
+        const isCollection = (channel === 'Collection');
+        const isLeaksVids = (channel === 'LeaksVids');
+
+        const entries = parseBulkInput(bulkText, isScrape, isTera || isCollection);
+
+        // Servers are KEYS: WatchNSFW, HotBunny, NSFW-NUDE
         const servers = (server === 'All' ? Object.keys(data) : [server]);
-        const adTypes = Array.isArray(AdType) ? AdType : [AdType].filter(Boolean);
+
+        // Base ad types selected by user
+        const baseAds = Array.isArray(AdType) ? AdType : [AdType].filter(Boolean);
 
         for (const sKey of servers) {
-            for (const entry of entries) {
-                let finalTitle, finalLink, finalImg;
-                let postLabel = null; // Label only used for random image channels
 
-                // 1. 📸 Image Sourcing
+            // 🔒 Per-server monetization
+            let serverAds = baseAds;
+
+            if (data[sKey]?.name === 'hotbunny') {
+                serverAds = ['admaven'];   // force HotBunny
+            }
+
+            for (const entry of entries) {
+
+                let finalTitle, finalLink, finalImg;
+                let postLabel = null;
+
+                // 📸 Image
                 if (isManualPhoto) {
-                    finalImg = req.file.path; 
+                    finalImg = req.file.path;
                 } else {
-                    finalImg = await getRandomImage(channel, textLabeling); 
-                    postLabel = textLabeling; // Apply label overlay/text
+                    finalImg = await getRandomImage(channel, textLabeling);
+                    postLabel = textLabeling;
                 }
 
-                // 2. 📝 Data Sourcing
+                // 📝 Data
                 if (isScrape) {
-                    // OF-Models: Rentry scraping
                     const scraped = await scrapeRentry(entry);
                     if (!scraped) continue;
                     finalTitle = scraped.name;
                     finalLink = scraped.link;
-                } else if (isTera) {
-                    // TeraBox: link pair
-                    finalTitle = "𝐎𝐩𝐞𝐧 𝐋𝐢𝐧𝐤𝐬 & 𝐖𝐚𝐭𝐜𝐡 𝐎𝐧𝐥𝐢𝐧𝐞 𝐄𝐚𝐬𝐢𝐥𝐲 + 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝"; 
+                } 
+                else if (isTera) {
+                    finalTitle = "𝐎𝐩𝐞𝐧 𝐋𝐢𝐧𝐤𝐬 & 𝐖𝐚𝐭𝐜𝐡 𝐎𝐧𝐥𝐢𝐧𝐞 𝐄𝐚𝐬𝐢𝐥𝐲 + 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝";
                     finalLink = entry.link;
-                } else if (isLeaksVids) {
-                    // Leaks-Vids:link pair
-                    finalTitle = "𝐋𝟑𝟒𝐊 𝐓𝟑𝟑𝐍𝐒 𝐕𝐈𝐃𝐒 𝐏𝐀𝐂𝐊"; 
+                } 
+                else if (isLeaksVids) {
+                    finalTitle = "𝐋𝟑𝟒𝐊 𝐓𝟑𝟑𝐍𝐒 𝐕𝐈𝐃𝐒 𝐏𝐀𝐂𝐊";
                     finalLink = entry.link;
-                } else if (isCollection) { // **<-- NEW LOGIC FOR COLLECTION**
-                    // Collection: Manual name/link pair from input
-                    finalTitle = entry.name ? entry.name : "New Collection Post"; 
+                } 
+                else if (isCollection) {
+                    finalTitle = entry.name || "New Collection Post";
                     finalLink = entry.link;
-                } else {
-                    // Other Channels (State-Snap, Amateur, Leaks-Vids): Label is title, link is the URL from input
+                } 
+                else {
                     finalTitle = textLabeling.replace(/-/g, ' ').toUpperCase();
                     finalLink = entry.link;
                 }
 
-                // 3. 🚀 Process Entry
-                await processSingleEntry(sKey, channel, finalTitle, finalLink, finalImg, selectType, adTypes, postLabel);
-                
-                // Delay between posts
+                // 🚀 Send
+                await processSingleEntry(
+                    sKey,
+                    channel,
+                    finalTitle,
+                    finalLink,
+                    finalImg,
+                    selectType,
+                    serverAds,
+                    postLabel
+                );
+
                 await new Promise(r => setTimeout(r, 1500));
             }
         }
+
         console.log("R.I.Y.A: Bulk processing complete.");
-    } catch (e) { 
-        console.error('R.I.Y.A: Error during bulk processing:', e.message); 
+
+    } catch (e) {
+        console.error('R.I.Y.A: Error during bulk processing:', e.message);
     }
 });
 
