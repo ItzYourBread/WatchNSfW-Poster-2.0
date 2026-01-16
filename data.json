@@ -1,11 +1,12 @@
 {
     "WatchNSFW": {
         "Status": true,
-        "Telegram": true,
+        "Telegram": false,
         "Group": "-1002166006414",
         "name": "watchnsfw",
         "token": "4fd3320e831fd9d7ad80aaa02df71c158a1e137a765fd80e1988568d8514a11e",
         "linkvertiseId": "1227907",
+        "lootlabsToken": "411b475c0745bb30bf9d124f0e4dcb6bb3982d6e0d9112cd33cb86a105ec4bfe",
         "domain": "https://watchnsfw.co/s?",
         "background": "https://i.ibb.co/ggtQWXH/adbackground.png",
         "logo": "https://i.ibb.co/5TNfVks/Watch-NSFW-Static-Logo.png",
@@ -30,12 +31,13 @@
         }
     },
     "HotBunny": {
-        "Status": true,
+        "Status": false,
         "Telegram": false,
         "Group": "",
         "name": "hotbunny",
         "token": "4fd3320e831fd9d7ad80aaa02df71c158a1e137a765fd80e1988568d8514a11e",
         "linkvertiseId": "1227907",
+        "lootlabsToken": "YOUR_LOOTLABS_API_TOKEN",
         "domain": "https://watchnsfw.co/s?",
         "background": "https://i.ibb.co/ggtQWXH/adbackground.png",
         "logo": "https://i.ibb.co/5TNfVks/Watch-NSFW-Static-Logo.png",
@@ -65,6 +67,7 @@
         "name": "nude-nsfw",
         "token": "4fd3320e831fd9d7ad80aaa02df71c158a1e137a765fd80e1988568d8514a11e",
         "linkvertiseId": "1185754",
+        "lootlabsToken": "YOUR_LOOTLABS_API_TOKEN",
         "domain": "https://watchnsfw.co/s?",
         "background": "https://i.ibb.co/ggtQWXH/adbackground.png",
         "logo": "https://i.ibb.co/5TNfVks/Watch-NSFW-Static-Logo.png",

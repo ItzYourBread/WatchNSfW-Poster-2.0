@@ -262,6 +262,91 @@ async function AdmavenShortner(url, option, select, attempts = 3) {
     }
 }
 
+async function LootlabsShortner(url, option, select) {
+    console.log(`\n--- [LL START] Processing: ${url.substring(0, 30)}... ---`);
+
+    try {
+        /* -------------------------------------------------
+           STEP 1: INNER LOCKER
+        ------------------------------------------------- */
+
+        const title1 = select === "1of1" ? "Final Link" : "Link 2 of 2";
+
+        const apiUrl1 =
+            `https://creators.lootlabs.gg/api/public/content_locker` +
+            `?api_token=${option.lootlabsToken}` +
+            `&title=${encodeURIComponent(title1)}` +
+            `&url=${encodeURIComponent(url)}` +
+            `&tier_id=${option.lootlabsTier || 3}` +
+            `&number_of_tasks=${option.lootlabsTasks || 1}` +
+            `&theme=${option.lootlabsTheme || 1}`;
+
+        const { data: data1 } = await axios.get(apiUrl1);
+
+        if (!data1?.message?.[0]?.loot_url) {
+            throw new Error("LootLabs inner locker failed");
+        }
+
+        const innerUrl = data1.message[0].loot_url;
+        console.log(`[LL 1/2] Inner Ad Link: ${innerUrl}`);
+
+        if (select === "1of1") return innerUrl;
+
+        /* -------------------------------------------------
+           STEP 2: JUSTPASTER
+        ------------------------------------------------- */
+
+        const replacements = { '%shortUrl%': innerUrl };
+        const text = Replace(option.template, replacements);
+
+        const pasteId = await jpApi.createPaste(text, true);
+        const pasteUrl = `https://justpaster.xyz/${pasteId}`;
+
+        console.log(`[LL 2/3] JustPaster URL: ${pasteUrl}`);
+
+        /* -------------------------------------------------
+           STEP 3: OUTER LOCKER
+        ------------------------------------------------- */
+
+        const title2 = "Link 1 of 2";
+
+        const apiUrl2 =
+            `https://creators.lootlabs.gg/api/public/content_locker` +
+            `?api_token=${option.lootlabsToken}` +
+            `&title=${encodeURIComponent(title2)}` +
+            `&url=${encodeURIComponent(pasteUrl)}` +
+            `&tier_id=${option.lootlabsTier || 3}` +
+            `&number_of_tasks=${option.lootlabsTasks || 1}` +
+            `&theme=${option.lootlabsTheme || 1}`;
+
+        const { data: data2 } = await axios.get(apiUrl2);
+
+        if (!data2?.message?.[0]?.loot_url) {
+            throw new Error("LootLabs outer locker failed");
+        }
+
+        const outerUrl = data2.message[0].loot_url;
+        console.log(`[LL FINAL] Outer Ad Link: ${outerUrl}`);
+
+        /* -------------------------------------------------
+           STEP 4: LOOP & ANTI-BYPASS
+        ------------------------------------------------- */
+
+        if (outerUrl === innerUrl) {
+            console.warn("⚠️ [LL WARNING] Inner and outer links are identical — skipping anti-bypass.");
+        } else {
+            console.log(`[LL LOCK] Locking Paste ${pasteId} to Referrer: ${outerUrl}`);
+            await jpApi.addAntiBypass(pasteId, true, outerUrl);
+        }
+
+        return outerUrl;
+
+    } catch (error) {
+        console.error("R.I.Y.A: LootLabs Error:", error.message);
+        return url;
+    }
+}
+
 // --- IMAGE PROCESSING & POSTING (Modified for Labeling) ---
 
 // Checks if the file path is likely a raw multer upload path (no extension)
@@ -409,11 +494,18 @@ async function processSingleEntry(serverKey, channel, title, link, imagePath, se
         TelegramText += `\n***_Option \\(AM\\):_*** *${escapeMarkdownV2(AmLink)}*`;
     }
 
+    if (effectiveAdType && effectiveAdType.includes("lootlabs")) {
+        const LlLink = await LootlabsShortner(finalLink, serverData, selectType);
+        DiscordText += `\n***Option (LL):*** **${LlLink}**`;
+        TelegramText += `\n***_Option \\(LL\\):_*** *${escapeMarkdownV2(LlLink)}*`;
+    }
+
     if (effectiveAdType && effectiveAdType.includes("linkvertise")) {
         const LvLink = await LinkvertiseShortner(finalLink, serverData, selectType);
         DiscordText += `\n***Option (LV):*** **${LvLink}**`;
         TelegramText += `\n***_Option \\(LV\\):_*** *${escapeMarkdownV2(LvLink)}*`;
     }
+
 
     DiscordText += "\n\n**⚝─────⭒────⭑────⭒─────⚝**";
     TelegramText += "\n\n*⚝────⭒────⭑────⭒────⚝*";
@@ -486,7 +578,7 @@ app.post('/process-bulk', upload.single('image'), async (req, res) => {
             let serverAds = baseAds;
 
             if (data[sKey]?.name === 'hotbunny') {
-                serverAds = ['admaven'];   // force HotBunny
+                serverAds = ['lootlabs'];   // force HotBunny
             }
 
             for (const entry of entries) {
@@ -508,19 +600,19 @@ app.post('/process-bulk', upload.single('image'), async (req, res) => {
                     if (!scraped) continue;
                     finalTitle = scraped.name;
                     finalLink = scraped.link;
-                } 
+                }
                 else if (isTera) {
                     finalTitle = "𝐎𝐩𝐞𝐧 𝐋𝐢𝐧𝐤𝐬 & 𝐖𝐚𝐭𝐜𝐡 𝐎𝐧𝐥𝐢𝐧𝐞 𝐄𝐚𝐬𝐢𝐥𝐲 + 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝";
                     finalLink = entry.link;
-                } 
+                }
                 else if (isLeaksVids) {
                     finalTitle = "𝐋𝟑𝟒𝐊 𝐓𝟑𝟑𝐍𝐒 𝐕𝐈𝐃𝐒 𝐏𝐀𝐂𝐊";
                     finalLink = entry.link;
-                } 
+                }
                 else if (isCollection) {
                     finalTitle = entry.name || "New Collection Post";
                     finalLink = entry.link;
-                } 
+                }
                 else {
                     finalTitle = textLabeling.replace(/-/g, ' ').toUpperCase();
                     finalLink = entry.link;
